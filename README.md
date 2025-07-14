@@ -1,0 +1,1 @@
+This mobile application is designed by UVA students, for UVA students, to help them figure out what places on Grounds are open/closed in real time. It also allows them to gain insight onto any other relevant information through the comments that can be posted by users. 
