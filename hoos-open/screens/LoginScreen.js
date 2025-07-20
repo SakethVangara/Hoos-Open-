@@ -31,6 +31,8 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       Alert.alert('Authentication Error', error.message);
     }
+
+    navigation.navigate('Home');
   };
 
   return (
