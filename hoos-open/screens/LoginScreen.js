@@ -26,13 +26,12 @@ export default function LoginScreen({ navigation }) {
         setIsSignup(false);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
-        navigation.replace('Buildings');
+        //navigation.replace('Buildings');
+        navigation.navigate('Home');
       }
     } catch (error) {
       Alert.alert('Authentication Error', error.message);
     }
-
-    navigation.navigate('Home');
   };
 
   return (
