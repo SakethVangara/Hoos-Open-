@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert
+  Text, TextInput, TouchableOpacity, StyleSheet, Alert, View, Image
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../firebase';
 import {
   createUserWithEmailAndPassword,
@@ -26,7 +27,6 @@ export default function LoginScreen({ navigation }) {
         setIsSignup(false);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
-        //navigation.replace('Buildings');
         navigation.navigate('Home');
       }
     } catch (error) {
@@ -35,60 +35,82 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {isSignup ? 'Create Account' : 'Welcome Back'}
-      </Text>
+    <LinearGradient
+      colors={['#EBAEE6', '#ADEBB3']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
+      <View style={styles.innerContainer}>
+        <Image
+          source={require('../assets/images/rotunda-building.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email (virginia.edu)"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={handleAuth}>
-        <Text style={styles.buttonText}>
-          {isSignup ? 'Sign Up' : 'Login'}
+        <Text style={styles.title}>
+          Sign in to access UVA Campus Building Info!
         </Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => setIsSignup(!isSignup)}>
-        <Text style={styles.toggleText}>
-          {isSignup
-            ? 'Already have an account? Log in'
-            : 'First time? Create an account'}
-        </Text>
-      </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          placeholder="Email (virginia.edu)"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      <Text style={styles.note}>UVA students only</Text>
-    </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TouchableOpacity style={styles.button} onPress={handleAuth}>
+          <Text style={styles.buttonText}>
+            {isSignup ? 'Sign Up' : 'Login'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => setIsSignup(!isSignup)}>
+          <Text style={styles.toggleText}>
+            {isSignup
+              ? 'Already have an account? Log in'
+              : 'First time? Create an account'}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.note}>UVA students only</Text>
+      </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EBAEE6',
+  },
+  innerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 20,
+  },
   title: {
-    fontSize: 30,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
     color: '#6B403C',
     marginBottom: 30,
+    paddingHorizontal: 20,
   },
   input: {
     width: '100%',
