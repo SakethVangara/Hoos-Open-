@@ -10,8 +10,8 @@ import {
 } from 'firebase/auth';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(process.env.NODE_ENV === "development" ? (process.env.EXPO_PUBLIC_EMAIL ?? "") : "");
+  const [password, setPassword] = useState(process.env.NODE_ENV === "development" ? (process.env.EXPO_PUBLIC_PASSWORD ?? "") : "");
   const [isSignup, setIsSignup] = useState(false);
 
   const handleAuth = async () => {
@@ -59,6 +59,9 @@ export default function LoginScreen({ navigation }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          textContentType='emailAddress'
+          autoComplete='email'
+          
         />
 
         <TextInput
@@ -67,6 +70,7 @@ export default function LoginScreen({ navigation }) {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          textContentType='password'
         />
 
         <TouchableOpacity style={styles.button} onPress={handleAuth}>

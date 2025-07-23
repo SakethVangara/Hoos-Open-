@@ -17,7 +17,7 @@ export default function HomeScreen() {
       {/* Top Menu Bar */}
       <View style={styles.topBar}>
         {/* Logo */}
-        <Text>Home Screen</Text> {/* add logo here */}
+        <Text>Home meow</Text> {/* add logo here */}
 
         {/* Search Bar */}
         <TextInput
@@ -35,6 +35,11 @@ export default function HomeScreen() {
           <Text>Sort by ▼</Text>
         </TouchableOpacity>
       </View>
+        {/* Main Content */}
+        <View style={{ flex: 1 , zIndex:0, marginTop:200}}>
+          <Text style={styles.text}>Welcome to Home Screen!</Text>
+          {/* Add more content here */}
+        </View>
     </View>
   );
 }
@@ -47,12 +52,16 @@ const styles = StyleSheet.create({
     alignItems: 'center' },
   text: { fontSize: 24 },
   topBar: {
+    zIndex:10,
+    position:'absolute',
+    top: 0,
+    width: '100%',
     flexDirection: 'row',
     paddingTop: 30,
     paddingHorizontal: 20,
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
-    height:100,
+    height:200,
     elevation:2
   },
   logo:{
