@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,382 +9,330 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
+import { app } from '../firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type BuildingType = 'Library' | 'Gym' | 'Academic' | 'Dining';
+
+type Building = {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  type: BuildingType;
+  hours: Record<string, string>;
+  tags: string[];
+};
+
+const FAVORITES_KEY = 'UVA_FAVORITE_BUILDINGS';
+
+const typeToEmojiMap: Record<BuildingType, string> = {
+  Library: '📚',
+  Gym: '🏋️',
+  Academic: '🎓',
+  Dining: '🥪',
+};
+
+const getTodayHours = (hours: Record<string, string>) => {
+  const day = new Date().getDay();
+  if (day === 0) return hours['Sun'] || 'Closed';
+  if (day === 6) return hours['Sat'] || 'Closed';
+  return hours['M-F'] || 'Closed';
+};
+
+const isOpenNow = (hours: string): boolean => {
+  if (!hours || hours.toLowerCase() === 'closed') return false;
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const [startStr, endStr] = hours.split('-').map((h) => h.trim());
+  if (!startStr || !endStr) return false;
+
+  const parseTimeString = (str: string, isEnd = false): number => {
+    const match = str.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/i);
+    if (!match) return -1;
+
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2] || '0', 10);
+    const period = match[3].toUpperCase();
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = isEnd ? 24 : 0; // Treat 12AM as 24 if it's an end time
+
+    return hour * 60 + minute;
+  };
+
+  const startMinutes = parseTimeString(startStr);
+  const endMinutes = parseTimeString(endStr, true);
+
+  if (startMinutes === -1 || endMinutes === -1) return false;
+
+  // Handle overnight ranges (e.g., 10PM–2AM)
+  if (endMinutes <= startMinutes) {
+    return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+  }
+
+  return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+};
 
 const BuildingsScreen = () => {
-  type BuildingType = 'Library' | 'Gym' | 'Academic' | 'Other';
-  
-  const typeToEmojiMap: Record<BuildingType, string> = {
-    Library: '📚',
-    Gym: '🏋️',
-    Academic: '🎓',
-    Other: '🏠',
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [searchText, setSearchText] = useState('');
+  const [filter, setFilter] = useState<'All' | 'Open' | 'Closed'>('All');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      try {
+        const db = getFirestore(app);
+        const snapshot = await getDocs(collection(db, 'locations'));
+        const fetched = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            name: data.name || '',
+            address: data.address || '',
+            lat: data.lat ?? 0,
+            lng: data.lng ?? 0,
+            type: data.type || 'Other',
+            hours: data.hours || {},
+            tags: data.tags || [],
+          } as Building;
+        });
+        setBuildings(fetched);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    };
+
+    const loadFavorites = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(FAVORITES_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as string[];
+          setFavorites(new Set(parsed));
+        }
+      } catch (err) {
+        console.error('Error loading favorites:', err);
+      }
+    };
+
+    fetchBuildings();
+    loadFavorites();
+  }, []);
+
+  const saveFavorites = async (updatedFavorites: Set<string>) => {
+    try {
+      const arr = Array.from(updatedFavorites);
+      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(arr));
+    } catch (err) {
+      console.error('Error saving favorites:', err);
+    }
   };
-  
-  type Building = {
-    name: string;
-    status: string;
-    hours: string;
-    type: BuildingType;
-    description: string;
+
+  const toggleFavorite = (name: string) => {
+    setFavorites((prev) => {
+      const updated = new Set(prev);
+      if (updated.has(name)) {
+        updated.delete(name);
+      } else {
+        updated.add(name);
+      }
+      saveFavorites(updated);
+      return updated;
+    });
   };
-  
-  const buildings: Building[] = [
-    {
-      name: 'Alderman Library',
-      status: 'Open',
-      hours: '8:00 AM - 5:00 PM',
-      type: 'Library',
-      description:
-        'The main library of the University of Virginia. It is a beautiful building with a lot of history.',
-    },
-    {
-      name: 'Aquatic and Fitness Center',
-      status: 'Open',
-      hours: '6:00 AM - 10:00 PM',
-      type: 'Gym',
-      description:
-        'The gym and aquatic center of the University of Virginia. It is a beautiful building with a lot of history.',
-    },
-    {
-      name: 'Clemons Library',
-      status: 'Open',
-      hours: '8:00 AM - 5:00 PM',
-      type: 'Library',
-      description:
-        'The main library of the University of Virginia. It is a beautiful building with a lot of history.',
-    },
-    {
-      name: 'Gilmer Hall',
-      status: 'Open',
-      hours: '8:00 AM - 5:00 PM',
-      type: 'Academic',
-      description:
-        'The main academic building of the University of Virginia. It is a beautiful building with a lot of history.',
-    },
-  ];
+
+  const filteredBuildings = buildings.filter((b) => {
+    const todayHours = getTodayHours(b.hours);
+    const matchesSearch = b.name.toLowerCase().includes(searchText.toLowerCase());
+    const matchesFavorite = !showFavoritesOnly || favorites.has(b.name);
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Open' && isOpenNow(todayHours)) ||
+      (filter === 'Closed' && !isOpenNow(todayHours));
+    return matchesSearch && matchesFavorite && matchesFilter;
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <View style={styles.topBar__welcome}>
-            <View style={styles.topBar__welcomeText}>
-              <Text style={styles.topBar__welcomeTitle}>🏫 UVA buildings</Text>
-              <Text style={styles.topBar__welcomeSubtitle}>Welcome back, Name!</Text>
-            </View>
-            <TouchableOpacity>
-              <View style={styles.topBar__welcomeButton}>
-                {/* LogOut Icon Placeholder */}
-                <Text>↪</Text>
+    <LinearGradient
+      colors={['#f5d4ef', '#d6f5dc']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.topBar}>
+            <View style={styles.topBar__welcome}>
+              <View>
+                <Text style={styles.topBar__welcomeTitle}>🏫 UVA Buildings</Text>
+                <Text style={styles.topBar__welcomeSubtitle}>Welcome back!</Text>
               </View>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity>
+                <Text style={{ fontSize: 16 }}>↪</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.topBar__searchBar}>
-            <TextInput 
-              placeholder="Search Buildings..." 
-              placeholderTextColor="#aaa"
-              style={styles.topBar__searchInput}
-            />
-          </View>
+            <View style={styles.topBar__searchBar}>
+              <TextInput
+                placeholder="Search buildings..."
+                placeholderTextColor="#5a2d2d"
+                style={styles.topBar__searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+            </View>
 
-          <View style={styles.topBar__userActions}>
-            <View style={styles.topBar__selectWrapper}>
-              <Picker
-                style={styles.topBar__select}
-                selectedValue=""
-                mode="dropdown"
+            <View style={styles.topBar__userActions}>
+              <View style={styles.topBar__selectWrapper}>
+                <Picker
+                  style={styles.topBar__select}
+                  selectedValue={filter}
+                  onValueChange={(value) => setFilter(value)}
+                >
+                  <Picker.Item label="Sort by Status" value="All" />
+                  <Picker.Item label="Open" value="Open" />
+                  <Picker.Item label="Closed" value="Closed" />
+                </Picker>
+              </View>
+              <TouchableOpacity
+                style={styles.topBar__button}
+                onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
               >
-                <Picker.Item label="Sort by Status" value="" enabled={false} />
-                <Picker.Item label="Open" value="Open" />
-                <Picker.Item label="Closed" value="Closed" />
-              </Picker>
-            </View>
-            <TouchableOpacity style={styles.topBar__button}>
-              <Text style={styles.topBar__buttonText}>Favorites</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.topBar__statuses}>
-            <View style={styles.status}>
-              <View style={[styles.status__icon, styles.status__icon__open]} />
-              <Text style={styles.status__text}>9 open</Text>
-            </View>
-            <View style={styles.status}>
-              <View style={[styles.status__icon, styles.status__icon__closed]} />
-              <Text style={styles.status__text}>3 closed</Text>
+                <Text style={styles.topBar__buttonText}>♡ Favorites</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        {/* Main Content */}
-        <View style={styles.main}>
-          {buildings.map((building, index) => (
-            <View key={index} style={styles.buildingCard}>
-              <View style={styles.buildingCard__header}>
-                <View style={styles.buildingCard__title}>
-                  <Text style={styles.buildingCard__icon}>
-                    {typeToEmojiMap[building.type]}
-                  </Text>
-                  <View style={styles.buildingCard__name}>
-                    <Text style={styles.buildingCard__nameText}>{building.name}</Text>
-                    <View style={styles.buildingCard__status}>
-                      <View style={[
-                        styles.statusLabel,
-                        building.status.toLowerCase() === 'open' 
-                          ? styles.statusLabel__open 
-                          : styles.statusLabel__closed
-                      ]}>
-                        <Text style={styles.statusLabel__text}>{building.status}</Text>
-                      </View>
-                      <View style={[styles.statusLabel, styles.statusLabel__type]}>
-                        <Text style={styles.statusLabel__text}>{building.type}</Text>
+          <View style={styles.main}>
+            {filteredBuildings.map((building, index) => {
+              const todayHours = getTodayHours(building.hours);
+              const open = isOpenNow(todayHours);
+
+              return (
+                <View key={index} style={styles.buildingCard}>
+                  <View style={styles.buildingCard__header}>
+                    <View style={styles.buildingCard__title}>
+                      <Text style={styles.buildingCard__icon}>
+                        {typeToEmojiMap[building.type] || '🏠'}
+                      </Text>
+                      <View style={styles.buildingCard__name}>
+                        <Text style={styles.buildingCard__nameText}>{building.name}</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <View style={[styles.statusLabel, styles.statusLabel__type]}>
+                            <Text style={styles.statusLabel__text}>{building.type}</Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.statusLabel,
+                              open ? styles.statusOpen : styles.statusClosed,
+                            ]}
+                          >
+                            <Text style={styles.statusLabel__text}>
+                              {open ? 'Open' : 'Closed'}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
+                    <TouchableOpacity onPress={() => toggleFavorite(building.name)}>
+                      <Text style={{ fontSize: 16, color: favorites.has(building.name) ? 'red' : '#555' }}>
+                        {favorites.has(building.name) ? '♥' : '♡'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.buildingCard__hours}>
+                    <Text style={{ fontSize: 14 }}>🕒</Text>
+                    <Text style={styles.buildingCard__hoursText}>
+                      Today: {todayHours}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tagRow}>
+                    {building.tags?.map((tag, i) => (
+                      <View key={i} style={styles.tag}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
-                <TouchableOpacity>
-                  <View style={styles.buildingCard__button}>
-                    {/* Heart Icon Placeholder */}
-                    <Text>♡</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.buildingCard__hours}>
-                <View style={styles.buildingCard__hoursIcon}>
-                  {/* Clock Icon Placeholder */}
-                  <Text>🕐</Text>
-                </View>
-                <Text style={styles.buildingCard__hoursText}>{building.hours}</Text>
-              </View>
-
-              <Text style={styles.buildingCard__description}>
-                {building.description}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fdfdff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  topBar: {
-    flexDirection: 'column',
-    gap: 12,
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 36,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
+  scrollContent: { flexGrow: 1 },
+  topBar: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12 },
   topBar__welcome: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  topBar__welcomeText: {
-    flexDirection: 'column',
-    gap: 5,
-  },
-  topBar__welcomeTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  topBar__welcomeSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#777',
-  },
-  topBar__welcomeButton: {
-    color: '#777',
-    height: 20,
-    width: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  topBar__welcomeTitle: { fontSize: 20, fontWeight: 'bold', color: '#5a2d2d' },
+  topBar__welcomeSubtitle: { fontSize: 14, color: '#777' },
   topBar__searchBar: {
-    borderWidth: 2,
-    borderColor: '#eef',
-    paddingHorizontal: 20,
-    paddingVertical: 5,
-    borderRadius: 9999,
-    width: '100%',
+    marginTop: 12, borderWidth: 2, borderColor: '#eed', borderRadius: 9999,
+    paddingHorizontal: 16, paddingVertical: 6,
   },
-  topBar__searchInput: {
-    fontSize: 14,
-  },
+  topBar__searchInput: { fontSize: 14, color: '#5a2d2d' },
   topBar__userActions: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-    alignItems: 'center',
+    flexDirection: 'row', marginTop: 12, gap: 10, alignItems: 'center',
   },
   topBar__selectWrapper: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: '#eef',
-    borderRadius: 9999,
-    overflow: 'hidden',
+    flex: 1, borderWidth: 2, borderColor: '#eed', borderRadius: 9999, overflow: 'hidden',
   },
-  topBar__select: {
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#777',
-  },
+  topBar__select: { fontSize: 13 },
   topBar__button: {
-    borderWidth: 2,
-    borderColor: '#eef',
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    borderRadius: 9999,
-    minWidth: 'auto',
+    borderWidth: 2, borderColor: '#eed', borderRadius: 9999,
+    paddingHorizontal: 16, paddingVertical: 6,
   },
-  topBar__buttonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#777',
-  },
-  topBar__statuses: {
-    flexDirection: 'row',
-    gap: 18,
-    width: '100%',
-    alignItems: 'center',
-  },
-  status: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-  status__icon: {
-    width: 10,
-    height: 10,
-    borderRadius: 9999,
-  },
-  status__icon__open: {
-    backgroundColor: 'green',
-  },
-  status__icon__closed: {
-    backgroundColor: 'red',
-  },
-  status__text: {
-    fontSize: 14,
-    color: '#777',
-  },
-  main: {
-    flexDirection: 'column',
-    gap: 16,
-    paddingHorizontal: 36,
-    paddingVertical: 24,
-  },
+  topBar__buttonText: { fontSize: 13, color: '#555' },
+  main: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   buildingCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-    borderWidth: 2,
-    borderColor: '#dfd',
+    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20,
+    borderColor: '#ADEBB3', borderWidth: 2, shadowColor: '#000', shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2,
   },
   buildingCard__header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 20,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 12,
   },
-  buildingCard__title: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  buildingCard__icon: {
-    fontSize: 20,
-  },
-  buildingCard__name: {
-    flexDirection: 'column',
-    gap: 5,
-  },
-  buildingCard__nameText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#555',
-  },
-  buildingCard__status: {
-    flexDirection: 'row',
-    gap: 5,
-  },
+  buildingCard__title: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  buildingCard__icon: { fontSize: 20 },
+  buildingCard__name: { flexDirection: 'column', gap: 4 },
+  buildingCard__nameText: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   statusLabel: {
-    paddingHorizontal: 10,
-    paddingVertical: 1,
-    borderRadius: 8,
-    borderWidth: 2,
+    alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 2,
+    borderRadius: 8, borderWidth: 1.5, marginTop: 4,
   },
-  statusLabel__text: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#777',
+  statusLabel__type: { backgroundColor: '#eee', borderColor: '#ddd' },
+  statusLabel__text: { fontSize: 12, fontWeight: '500', color: '#555' },
+  statusOpen: {
+    backgroundColor: '#c8f7c5',
+    borderColor: '#7ed87e',
   },
-  statusLabel__open: {
-    backgroundColor: 'rgba(0, 255, 0, 0.2)',
-    borderColor: 'rgba(0, 255, 0, 0.5)',
-  },
-  statusLabel__closed: {
-    backgroundColor: 'rgba(255, 0, 0, 0.2)',
-    borderColor: 'rgba(245, 93, 93, 0.5)',
-  },
-  statusLabel__type: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderColor: '#ddd',
-  },
-  buildingCard__button: {
-    width: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  statusClosed: {
+    backgroundColor: '#f7c5c5',
+    borderColor: '#e27b7b',
   },
   buildingCard__hours: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6,
   },
-  buildingCard__hoursIcon: {
-    width: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  buildingCard__hoursText: { fontSize: 14, fontWeight: '500', color: '#555' },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tag: {
+    backgroundColor: '#f5f5f5', borderColor: '#ddd', borderWidth: 1,
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2,
   },
-  buildingCard__hoursText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#777',
-  },
-  buildingCard__description: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#777',
-    letterSpacing: 0.2,
-  },
+  tagText: { fontSize: 12, color: '#444' },
 });
 
 export default BuildingsScreen;
