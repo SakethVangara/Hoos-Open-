@@ -4,8 +4,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from './screens/LoginScreen';
-import { View } from 'react-native-web';
-import HomeScreen from './screens/HomeScreen'; 
+import HomeScreen from './screens/HomeScreen';
+import DetailsScreen from './screens/DetailsScreen'; // <-- Make sure this file exists and is correctly implemented
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Details" component={DetailsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

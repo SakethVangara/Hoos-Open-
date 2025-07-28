@@ -13,10 +13,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import { app } from '../firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type BuildingType = 'Library' | 'Gym' | 'Academic' | 'Dining';
+export type BuildingType = 'Library' | 'Gym' | 'Academic' | 'Dining' | 'Cafe' | 'Convenience';
 
-type Building = {
+export type Building = {
+  id: string;
   name: string;
   address: string;
   lat: number;
@@ -33,6 +36,8 @@ const typeToEmojiMap: Record<BuildingType, string> = {
   Gym: '🏋️',
   Academic: '🎓',
   Dining: '🥪',
+  Cafe: '☕',
+  Convenience: '🛍️',
 };
 
 const getTodayHours = (hours: Record<string, string>) => {
@@ -60,7 +65,7 @@ const isOpenNow = (hours: string): boolean => {
     const period = match[3].toUpperCase();
 
     if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = isEnd ? 24 : 0; // Treat 12AM as 24 if it's an end time
+    if (period === 'AM' && hour === 12) hour = isEnd ? 24 : 0;
 
     return hour * 60 + minute;
   };
@@ -70,7 +75,6 @@ const isOpenNow = (hours: string): boolean => {
 
   if (startMinutes === -1 || endMinutes === -1) return false;
 
-  // Handle overnight ranges (e.g., 10PM–2AM)
   if (endMinutes <= startMinutes) {
     return nowMinutes >= startMinutes || nowMinutes < endMinutes;
   }
@@ -85,6 +89,8 @@ const BuildingsScreen = () => {
   const [filter, setFilter] = useState<'All' | 'Open' | 'Closed'>('All');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+
   useEffect(() => {
     const fetchBuildings = async () => {
       try {
@@ -93,6 +99,7 @@ const BuildingsScreen = () => {
         const fetched = snapshot.docs.map((doc) => {
           const data = doc.data();
           return {
+            id: doc.id,
             name: data.name || '',
             address: data.address || '',
             lat: data.lat ?? 0,
@@ -214,53 +221,58 @@ const BuildingsScreen = () => {
               const open = isOpenNow(todayHours);
 
               return (
-                <View key={index} style={styles.buildingCard}>
-                  <View style={styles.buildingCard__header}>
-                    <View style={styles.buildingCard__title}>
-                      <Text style={styles.buildingCard__icon}>
-                        {typeToEmojiMap[building.type] || '🏠'}
-                      </Text>
-                      <View style={styles.buildingCard__name}>
-                        <Text style={styles.buildingCard__nameText}>{building.name}</Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <View style={[styles.statusLabel, styles.statusLabel__type]}>
-                            <Text style={styles.statusLabel__text}>{building.type}</Text>
-                          </View>
-                          <View
-                            style={[
-                              styles.statusLabel,
-                              open ? styles.statusOpen : styles.statusClosed,
-                            ]}
-                          >
-                            <Text style={styles.statusLabel__text}>
-                              {open ? 'Open' : 'Closed'}
-                            </Text>
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => navigation.navigate('Details', { buildingId: building.id })}
+                >
+                  <View style={styles.buildingCard}>
+                    <View style={styles.buildingCard__header}>
+                      <View style={styles.buildingCard__title}>
+                        <Text style={styles.buildingCard__icon}>
+                          {typeToEmojiMap[building.type] || '🏠'}
+                        </Text>
+                        <View style={styles.buildingCard__name}>
+                          <Text style={styles.buildingCard__nameText}>{building.name}</Text>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={[styles.statusLabel, styles.statusLabel__type]}>
+                              <Text style={styles.statusLabel__text}>{building.type}</Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.statusLabel,
+                                open ? styles.statusOpen : styles.statusClosed,
+                              ]}
+                            >
+                              <Text style={styles.statusLabel__text}>
+                                {open ? 'Open' : 'Closed'}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                       </View>
+                      <TouchableOpacity onPress={() => toggleFavorite(building.name)}>
+                        <Text style={{ fontSize: 16, color: favorites.has(building.name) ? 'red' : '#555' }}>
+                          {favorites.has(building.name) ? '♥' : '♡'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => toggleFavorite(building.name)}>
-                      <Text style={{ fontSize: 16, color: favorites.has(building.name) ? 'red' : '#555' }}>
-                        {favorites.has(building.name) ? '♥' : '♡'}
+
+                    <View style={styles.buildingCard__hours}>
+                      <Text style={{ fontSize: 14 }}>🕒</Text>
+                      <Text style={styles.buildingCard__hoursText}>
+                        Today: {todayHours}
                       </Text>
-                    </TouchableOpacity>
-                  </View>
+                    </View>
 
-                  <View style={styles.buildingCard__hours}>
-                    <Text style={{ fontSize: 14 }}>🕒</Text>
-                    <Text style={styles.buildingCard__hoursText}>
-                      Today: {todayHours}
-                    </Text>
+                    <View style={styles.tagRow}>
+                      {building.tags?.map((tag, i) => (
+                        <View key={i} style={styles.tag}>
+                          <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-
-                  <View style={styles.tagRow}>
-                    {building.tags?.map((tag, i) => (
-                      <View key={i} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
