@@ -45,7 +45,7 @@ const typeToEmojiMap: Record<string, string> = {
   Convenience: '🛍️',
 };
 
-const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekdayKeys: Record<string, string> = {
   Monday: 'M-F',
   Tuesday: 'M-F',
@@ -102,6 +102,54 @@ const DetailsScreen = () => {
     setCommentInput('');
   };
 
+  const getHoursForDay = (day: string): string => {
+    const key = weekdayKeys[day] || day;
+    const val = building?.hours?.[key];
+    return val || 'Closed';
+  };
+
+  const isBuildingOpen = (): boolean => {
+  if (!building?.hours) return false;
+
+  const now = new Date();
+  const day = weekdays[now.getDay()];
+  const key = weekdayKeys[day] || day;
+  const todayHours = building.hours[key];
+
+  if (
+    !todayHours ||
+    typeof todayHours !== 'string' ||
+    todayHours.toLowerCase().includes('closed') ||
+    todayHours.toLowerCase().includes('varies') ||
+    !todayHours.includes('–')
+  ) {
+    return false;
+  }
+
+  const [startStr, endStr] = todayHours.split('–');
+  if (!startStr || !endStr) return false;
+
+  const parseTime = (timeStr: string): Date => {
+    const trimmed = timeStr.trim();
+    const match = trimmed.match(/(\d+)(?::(\d+))?(AM|PM)/i);
+    if (!match) return new Date(0);
+    const [, hourStr, minStr, ampm] = match;
+    let hour = parseInt(hourStr);
+    const min = minStr ? parseInt(minStr) : 0;
+    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+    const t = new Date();
+    t.setHours(hour, min, 0, 0);
+    return t;
+  };
+
+  const start = parseTime(startStr);
+  const end = parseTime(endStr);
+
+  return now >= start && now <= end;
+};
+
   if (!buildingId) {
     return (
       <View style={styles.loading}>
@@ -118,12 +166,6 @@ const DetailsScreen = () => {
     );
   }
 
-  const getHoursForDay = (day: string): string => {
-    const key = weekdayKeys[day] || day;
-    const val = building.hours[key];
-    return val || 'Closed';
-  };
-
   const buildingEmoji = typeToEmojiMap[building.type] || '🏛️';
 
   return (
@@ -137,7 +179,9 @@ const DetailsScreen = () => {
       </Text>
 
       <View style={styles.badges}>
-        <Text style={[styles.badge, styles.open]}>Open</Text>
+        <Text style={[styles.badge, isBuildingOpen() ? styles.open : styles.closed]}>
+          {isBuildingOpen() ? 'Open' : 'Closed'}
+        </Text>
         <Text style={styles.badge}>{building.type}</Text>
       </View>
 
@@ -149,12 +193,16 @@ const DetailsScreen = () => {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>🕓 Hours</Text>
-        {weekdays.map((day) => (
+        {weekdays.slice(1).map((day) => (
           <View key={day} style={styles.hoursRow}>
             <Text style={styles.day}>{day}</Text>
             <Text style={styles.time}>{getHoursForDay(day)}</Text>
           </View>
         ))}
+        <View style={styles.hoursRow}>
+          <Text style={styles.day}>Sunday</Text>
+          <Text style={styles.time}>{getHoursForDay('Sunday')}</Text>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -227,6 +275,7 @@ const styles = StyleSheet.create({
     color: '#444',
   },
   open: { backgroundColor: '#c8f7c5' },
+  closed: { backgroundColor: '#ffd6d6' },
   card: {
     backgroundColor: '#fff0f8',
     padding: 14,
