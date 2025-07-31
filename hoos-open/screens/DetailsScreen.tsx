@@ -109,46 +109,48 @@ const DetailsScreen = () => {
   };
 
   const isBuildingOpen = (): boolean => {
-  if (!building?.hours) return false;
+    if (!building?.hours) return false;
 
-  const now = new Date();
-  const day = weekdays[now.getDay()];
-  const key = weekdayKeys[day] || day;
-  const todayHours = building.hours[key];
+    const now = new Date();
+    const day = weekdays[now.getDay()];
+    const key = weekdayKeys[day] || day;
+    const todayHours = building.hours[key];
 
-  if (
-    !todayHours ||
-    typeof todayHours !== 'string' ||
-    todayHours.toLowerCase().includes('closed') ||
-    todayHours.toLowerCase().includes('varies') ||
-    !todayHours.includes('–')
-  ) {
-    return false;
-  }
+    if (
+      !todayHours ||
+      typeof todayHours !== 'string' ||
+      todayHours.toLowerCase().includes('closed') ||
+      todayHours.toLowerCase().includes('varies')
+    ) {
+      return false;
+    }
 
-  const [startStr, endStr] = todayHours.split('–');
-  if (!startStr || !endStr) return false;
+    // Normalize various dash characters
+    const normalized = todayHours.replace(/[–—−]/g, '-');
+    const [startStr, endStr] = normalized.split('-');
+    if (!startStr || !endStr) return false;
 
-  const parseTime = (timeStr: string): Date => {
-    const trimmed = timeStr.trim();
-    const match = trimmed.match(/(\d+)(?::(\d+))?(AM|PM)/i);
-    if (!match) return new Date(0);
-    const [, hourStr, minStr, ampm] = match;
-    let hour = parseInt(hourStr);
-    const min = minStr ? parseInt(minStr) : 0;
-    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    const parseTime = (timeStr: string): number => {
+      const match = timeStr.trim().match(/(\d+)(?::(\d+))?(AM|PM)/i);
+      if (!match) return -1;
+      let [_, hourStr, minStr, period] = match;
+      let hour = parseInt(hourStr, 10);
+      let minute = minStr ? parseInt(minStr, 10) : 0;
+      if (period.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (period.toUpperCase() === 'AM' && hour === 12) hour = 0;
+      return hour * 60 + minute;
+    };
 
-    const t = new Date();
-    t.setHours(hour, min, 0, 0);
-    return t;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const start = parseTime(startStr);
+    const end = parseTime(endStr);
+
+    if (start === -1 || end === -1) return false;
+    if (end <= start) {
+      return nowMinutes >= start || nowMinutes < end;
+    }
+    return nowMinutes >= start && nowMinutes < end;
   };
-
-  const start = parseTime(startStr);
-  const end = parseTime(endStr);
-
-  return now >= start && now <= end;
-};
 
   if (!buildingId) {
     return (
@@ -193,16 +195,12 @@ const DetailsScreen = () => {
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>🕓 Hours</Text>
-        {weekdays.slice(1).map((day) => (
+        {weekdays.map((day) => (
           <View key={day} style={styles.hoursRow}>
             <Text style={styles.day}>{day}</Text>
             <Text style={styles.time}>{getHoursForDay(day)}</Text>
           </View>
         ))}
-        <View style={styles.hoursRow}>
-          <Text style={styles.day}>Sunday</Text>
-          <Text style={styles.time}>{getHoursForDay('Sunday')}</Text>
-        </View>
       </View>
 
       <View style={styles.card}>

@@ -48,15 +48,21 @@ const getTodayHours = (hours: Record<string, string>) => {
 };
 
 const isOpenNow = (hours: string): boolean => {
-  if (!hours || hours.toLowerCase() === 'closed') return false;
+  if (
+    !hours ||
+    typeof hours !== 'string' ||
+    hours.toLowerCase().includes('closed') ||
+    hours.toLowerCase().includes('varies')
+  ) {
+    return false;
+  }
 
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const normalized = hours.replace(/–|—/g, '-');
+  const [startStr, endStr] = normalized.split('-').map((h) => h.trim());
 
-  const [startStr, endStr] = hours.split('-').map((h) => h.trim());
   if (!startStr || !endStr) return false;
 
-  const parseTimeString = (str: string, isEnd = false): number => {
+  const parseTime = (str: string): number => {
     const match = str.match(/(\d{1,2})(?::(\d{2}))?(AM|PM)/i);
     if (!match) return -1;
 
@@ -65,13 +71,16 @@ const isOpenNow = (hours: string): boolean => {
     const period = match[3].toUpperCase();
 
     if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = isEnd ? 24 : 0;
+    if (period === 'AM' && hour === 12) hour = 0;
 
     return hour * 60 + minute;
   };
 
-  const startMinutes = parseTimeString(startStr);
-  const endMinutes = parseTimeString(endStr, true);
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const startMinutes = parseTime(startStr);
+  const endMinutes = parseTime(endStr);
 
   if (startMinutes === -1 || endMinutes === -1) return false;
 
