@@ -188,9 +188,6 @@ const BuildingsScreen = () => {
                 <Text style={styles.topBar__welcomeTitle}>🏫 UVA Buildings</Text>
                 <Text style={styles.topBar__welcomeSubtitle}>Welcome back!</Text>
               </View>
-              <TouchableOpacity>
-                <Text style={{ fontSize: 16 }}>↪</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.topBar__searchBar}>

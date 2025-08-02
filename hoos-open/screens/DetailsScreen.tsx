@@ -187,11 +187,7 @@ const DetailsScreen = () => {
         <Text style={styles.badge}>{building.type}</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.description}>
-          {building.description || 'No description available.'}
-        </Text>
-      </View>
+      
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>🕓 Hours</Text>
