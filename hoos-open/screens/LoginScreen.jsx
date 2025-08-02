@@ -1,18 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  Text, TextInput, TouchableOpacity, StyleSheet, Alert, View, Image
+  Text,
+  TextInput,
+  StyleSheet,
+  Alert,
+  View,
+  Image,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../firebase';
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
 } from 'firebase/auth';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(
+    process.env.NODE_ENV === 'development' ? process.env.EXPO_PUBLIC_EMAIL ?? '' : ''
+  );
+  const [password, setPassword] = useState(
+    process.env.NODE_ENV === 'development' ? process.env.EXPO_PUBLIC_PASSWORD ?? '' : ''
+  );
   const [isSignup, setIsSignup] = useState(false);
+
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handleAuth = async () => {
     if (!email.endsWith('@virginia.edu')) {
@@ -59,6 +88,8 @@ export default function LoginScreen({ navigation }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          textContentType="emailAddress"
+          autoComplete="email"
         />
 
         <TextInput
@@ -67,21 +98,28 @@ export default function LoginScreen({ navigation }) {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          textContentType="password"
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleAuth}>
-          <Text style={styles.buttonText}>
-            {isSignup ? 'Sign Up' : 'Login'}
-          </Text>
-        </TouchableOpacity>
+        <Pressable
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={handleAuth}
+        >
+          <Animated.View style={[styles.button, { transform: [{ scale: scaleAnim }] }]}>
+            <Text style={styles.buttonText}>
+              {isSignup ? 'Sign Up' : 'Login'}
+            </Text>
+          </Animated.View>
+        </Pressable>
 
-        <TouchableOpacity onPress={() => setIsSignup(!isSignup)}>
+        <Pressable onPress={() => setIsSignup(!isSignup)}>
           <Text style={styles.toggleText}>
             {isSignup
               ? 'Already have an account? Log in'
               : 'First time? Create an account'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
 
         <Text style={styles.note}>UVA students only</Text>
       </View>
