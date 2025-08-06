@@ -10,12 +10,18 @@
       "supportsTablet": true
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.uva_app.hoosopen"
     },
     "web": {},
     "plugins": [],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "dbb0fa8c-a932-449f-b860-f53eb0069604"
+      }
     }
   }
 }
