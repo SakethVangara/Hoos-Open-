@@ -103,7 +103,7 @@ npm install -g expo-cli
 Then, you can run the program with these commands, in order:
 ```bash
 git clone https://github.com/SakethVangara/HoosOpen.git
-cd HoosOpen/my-app
+cd HoosOpen/hoos-open
 npm install
 npx expo install
 npx expo start
